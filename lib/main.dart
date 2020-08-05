@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'dart:async';
 import 'dart:math';
+import 'package:path/path.dart';
+import 'package:async/async.dart';
+import 'dart:io';
+import 'package:http/http.dart' as http;
 
 void main() => runApp(MyApp());
 
@@ -53,8 +56,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
 
 
-  final String phpEndPoint = 'https://{ USE LOCAL-HOST OR PERSONAL-HOST }/CerSavePicture.php';
-  bool _waitingPageState = false;
+  final String phpEndPoint = 'https:// {USE LOCAL-HOST OR PERSONAL-HOST} /req/photo/';
 
   String randomName =(new Random().nextInt(100000).toString());
 
@@ -65,33 +67,32 @@ class _MyHomePageState extends State<MyHomePage> {
 // file = await ImagePicker.pickImage(source: ImageSource.gallery);
   }
 
-  Future<void> _showWaitingPage(bool isShow) async {
-    if (mounted) {
-      setState(() {
-        _waitingPageState = isShow;
-      });
-    }
-  }
 
-   _upload() async {
-    if (file == null) return;
-    String base64Image = base64Encode(file.readAsBytesSync());
-    String fileName = randomName;
+  Upload(File imageFile) async {
+    Map<String , String> _headers={
+      "Authorization" : "tokens 1ca5c12b143161d95"
+    };
+    var stream = new http.ByteStream(DelegatingStream.typed(imageFile.openRead()));
+    var length = await imageFile.length();
 
-    http.post(phpEndPoint, body: {
-      "image": base64Image,
-      "name": fileName,
-    }).then((res) {
-      print(res.statusCode);
-      print(phpEndPoint);
+    var uri = Uri.parse(phpEndPoint);
 
-    }).catchError((err) {
-      print(err);
-      print(phpEndPoint);
+    var request = new http.MultipartRequest("PUT", uri);
+    var multipartFile = new http.MultipartFile('file', stream, length,
+        filename: basename(imageFile.path));
+    //contentType: new MediaType('image', 'png'));
 
+        request.fields['id'] = '4002';
+
+    request.files.add(multipartFile);
+    request.headers.addAll(_headers);
+
+    var response = await request.send();
+    print('>>>>>>>>>>>>>>>>>>>>>>>>${response.statusCode}');
+    response.stream.transform(utf8.decoder).listen((value) {
+      print(value);
     });
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -110,7 +111,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 SizedBox(width: 10.0),
                 RaisedButton(
                   onPressed: () async {
-                    await _upload();
+                    await Upload(file);
                   },
                   child: Text('Upload Image'),
                 )
